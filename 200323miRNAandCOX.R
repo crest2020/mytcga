@@ -1,0 +1,209 @@
+library(RTCGA.miRNASeq)
+library(RTCGA.clinical)
+exp=expressionsTCGA(BRCA.miRNASeq)
+dim(exp)
+View((expr1[1:4,1:6]))
+View(BRCA.miRNASeq[1:6,1:6])
+row.names(exp)=rownames(BRCA.miRNASeq)
+head(rownames(exp))
+table(rownames(exp))
+head(colnames(t(exp)))
+expr1=exp[seq(1,nrow(exp),by=3),3:ncol(exp)]
+dim(expr1)
+str(expr1)
+expr1=apply(expr1,2,as.numeric)
+rownames(expr1)=rownames(exp)[seq(1,nrow(exp),by=3)]
+
+expr2=t(expr1)
+head(colnames(expr2))
+head(rownames(expr1))
+table(apply(expr2,1,is.na))
+expr3=na.omit(expr2)
+table(apply(expr3,1,is.na))
+dim(expr3)
+expr4=expr3[apply(expr3,1,function(x){sum(x>1)>10}),]
+dim(expr4)
+head(colnames(expr4))
+expr5=expr3[apply(expr3,1,function(x){sum(x>1)>10}),1:4]
+head(rownames(expr5))
+dim(expr4)
+##clinical
+brca_clinical=BRCA.clinical
+dim(brca_clinical)
+brca_clinicaldata1<-brca_clinical[c('patient.bcr_patient_barcode',
+                                   'patient.vital_status',
+                                   'patient.days_to_death',
+                                   'patient.days_to_last_followup',
+                                   'patient.race',
+                                   'patient.age_at_initial_pathologic_diagnosis',
+                                   'patient.gender',
+                                   'patient.stage_event.pathologic_stage'
+)]
+str(brca_clinicaldata)
+View(brca_clinicaldata)
+rownames(brca_clinicaldata)=NULL
+rownames(brca_clinicaldata)=brca_clinicaldata$patient.bcr_patient_barcode
+##differential expression
+library(edgeR)
+library(stringr)
+head(colnames(expr4))
+group_list=ifelse(as.numeric(substr(colnames(expr4),14,15))<10,"Tumour","Normal")
+table(group_list)
+group_list=factor(group_list,levels=c("Normal","Tumour"))
+table(group_list)
+dge=DGEList(counts=expr4,group=group_list)
+keep=rowSums(cpm(dge)>1)>=3
+table(keep)
+dge=dge[keep,keep.lib.sizes=F]
+dge$samples$lib.size=colSums(dge$counts)
+dge=calcNormFactors(dge,method = "TMM")
+dge$samples
+logcpm=cpm(dge,log=T,prior.count=2)
+design=model.matrix(~0+group_list)
+design
+head(model.matrix(~group_list))
+colnames(design)=levels(group_list)
+rownames(design)=colnames(dge)
+
+head(design)
+dge=estimateDisp(dge,design)
+fit=glmFit(dge,design)
+fit2=glmLRT(fit,contrast = c(-1,1))
+?glmLRT
+alldem=topTags(fit2,n=nrow(dge))
+alldem=as.data.frame(alldem)
+head(alldem)
+library(ggplot2)
+fdr_cutoff=0.05
+logfc_cutoff=1
+alldem$change=as.factor(ifelse(alldem$FDR>0.05,"NO",ifelse(alldem$logFC>logfc_cutoff,"Up",ifelse(alldem$logFC<(-logfc_cutoff),"Down","No"))))
+table(alldem$change)
+sigdem=rownames(alldem)[alldem$change!="No"]
+head(sigdem)
+length(sigdem)
+up=rownames(alldem)[alldem$change=="Up"]
+down=rownames(alldem)[alldem$change=="Down"]
+head(up)
+head(down)
+volcano_plot=ggplot(data=alldem,aes(x=logFC,y=-log10(FDR)))+geom_point(alpha=0.4,size=5,aes(color=change))
+volcano_plot
+hist(logcpm,breaks=100)
+table(logcpm>2)
+library(pheatmap)
+logcpm_sig=logcpm[sigdem,]
+head(logcpm_sig)
+View(logcpm_sig)
+pheatmap(logcpm_sig,scale = "row",show_rownames = F,show_colnames=F)
+?pheatmap
+##cox regresison analysis
+library(survival)
+library(survminer)
+up_exp=expr4[up,]
+(up_exp)[1:4,1:4]
+up_exp=as.data.frame(up_exp)
+up_exp
+up_exp=log2(up_exp+1)
+dim(up_exp)
+table(group_list)
+install.packages("FactoMineR")
+install.packages("factoextra")
+library(FactoMineR)
+library(factoextra)
+exp_pca=t(up_exp)
+exp_pca=as.data.frame(exp_pca)
+exp_pca.graph=PCA(exp_pca,graph = F)
+exp_pca=cbind(exp_pca,group_list)
+fviz_pca_ind(exp_pca.graph,title="PCA",geom.ind = "point",col.ind = exp_pca$group_list,addEllipses = T,legend.title="Groups")
+str(brca_clinicaldata) 
+colnames(brca_clinicaldata)
+colnames(brca_clinicaldata)<-c("barcode","event","days_to_death","days_to_last_followup","race","age","gender","stage")
+View(brca_clinicaldata[1:4,])
+View(expr4[1:4,1:4])
+?match
+dem_colnames=substr(colnames(up_exp),1,12)
+head(dem_colnames)
+dem_colnames=tolower(dem_colnames)
+head(dem_colnames)
+brca_clinicaldata=brca_clinicaldata[match(dem_colnames,rownames(brca_clinicaldata)),]
+
+a=c(1,2,3,5)
+b=c(2,3)
+a[match(b,a)]
+head(rownames(brca_clinicaldata))
+table(tolower(rownames(brca_clinicaldata1))%in%dem_colnames)
+tail(match(dem_colnames,rownames(brca_clinicaldata)))
+length(dem_colnames)
+head(dem_colnames)
+head(rownames(brca_clinicaldata))
+tolower("HFNGIOSHNjfj")
+
+length(dem_colnames)
+length(rownames(brca_clinicaldata))
+table((rownames(brca_clinicaldata))%in%dem_colnames)
+tail(dem_colnames)
+tail(rownames(brca_clinicaldata))
+View(rownames(brca_clinicaldata)
+View(dem_colnames)     
+all(substr(rownames(brca_clinicaldata),1,12)==substr(colnames(dem_colnames),1,12))
+
+rownames(brca_clinicaldata)=colnames(dem_colnames)
+str(brca_clinicaldata)
+View(brca_clinicaldata)
+
+table(brca_clinicaldata$gender)
+class(brca_clinicaldata)
+brca_clinicaldata$
+'patient.bcr_patient_barcode',
+'patient.vital_status',
+'patient.days_to_death',
+'patient.days_to_last_followup',
+'patient.race',
+'patient.age_at_initial_pathologic_diagnosis',
+'patient.gender',
+'patient.stage_event.pathologic_stage'
+colnames(brca_clinicaldata)
+table(brca_clinicaldata$gender)
+brca_clinicaldata[,3][is.na(brca_clinicaldata[,3])]=0
+brca_clinicaldata[,4][is.na(brca_clinicaldata[,4])]=0
+
+
+clinical=brca_clinical[c('patient.bcr_patient_barcode',
+                                             'patient.vital_status',
+                                             'patient.days_to_death',
+                                             'patient.days_to_last_followup',
+                                             'patient.race',
+                                             'patient.age_at_initial_pathologic_diagnosis',
+                                             'patient.gender',
+                                             'patient.stage_event.pathologic_stage'
+)]
+head(clinical$patient.bcr_patient_barcode)
+rownames(clinical)=clinical$patient.bcr_patient_barcode
+clinical1=clinical[match(dem_colnames,rownames(clinical)),]
+all(substr(rownames(clinical1),1,12)==substr(colnames(dem_colnames),1,12))
+View(clinical1)
+length(dem_colnames)
+colnames(clinical1)<-c("barcode","event","days_to_death","days_to_last_followup","race","age","gender","stage")
+table(clinical1$gender)
+View(clinical)
+clinical1[,3][is.na(clinical1[,3])]=0
+clinical1[,4][is.na(clinical1[,4])]=0
+
+clinical1$time_days=as.numeric(clinical1[,3])+as.numeric(clinical1[,4])
+table(clinical1$time_days<=0)
+clinical1=clinical1[clinical1$time_days>0,]
+table(clinical1$time_days>0)
+clinical1$time_days=clinical1$time_days/365
+View(clinical1$event)
+clinical1$event=ifelse(clinical1$event==0,"alive","dead")
+dim(up_exp)
+length(rownames(clinical1))
+up_exp=up_exp[,rownames(clinical1)]
+head(rownames(clinical1))
+head(colnames(up_exp))
+colnames(up_exp)=tolower(substr(colnames(up_exp),1,12))
+head(colnames(up_exp))
+View(up_exp)
+head(up_exp[,"tcga-a1-a0se"])
+sum(table(colnames(up_exp))>1)
+dim(up_exp)
+dim(clinical1)
